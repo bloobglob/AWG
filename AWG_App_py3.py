@@ -1,6 +1,6 @@
 # Title:  AWG - Akemi's Word Game
 # Author: Daniel Commins 
-# Date:   May 22, 2015
+# Date:   June 13, 2015
 # Files:  AWG_App_py2.py; SINGLE.TXT (dictionary words file)
 # Tested: python 2.61
 # Info:   Akemi's Word Game: The game where you try and guess the computer's randomly
@@ -11,7 +11,7 @@ import random
 import tkinter
 import tkinter.messagebox
 
-GAME_VERSION = "1.2"
+GAME_VERSION = "1.3"
 
 class CurGuess_t :
     def __init__(self) :
@@ -27,8 +27,9 @@ class PastGuesses_t :
 
 class WordGame_tk( tkinter.Tk ) :
     entryWidth = 30         # in chars
-    guessStartRow = 7       # using grid()
-    dictWordList = None     # only needs to be read once for all instances
+    guessStartRow = 8       # using grid()
+    dictWordListEasy = None # only needs to be read once for all instances
+    dictWordListHard = None # only needs to be read once for all instances
 
     def __init__( self, parent ):
         tkinter.Tk.__init__(self, parent)
@@ -49,7 +50,11 @@ class WordGame_tk( tkinter.Tk ) :
         self.randomWord = None                  # randomly selected word from dictionary
         self.wordList = list()                  # stores words from dictionary of the specified length
         self.pluralCheckVal = tkinter.IntVar()  # stores value from user option to include word plurals
+        self.exSpacesCheckVal = tkinter.IntVar()# stores value from user option to include extra spaces in result
+        self.difficultyVal = tkinter.IntVar()   # stores the game difficulty level
         self.checkPlurals = None                # stores the plural check option when game starts
+        self.extraSpaces = None                 # stores the option to add a space every character in result
+        self.difficulty = None                  # stores the game difficulty level when the game starts
 
         # Open and read large words file once if necessary
         self.ReadWordsFile()
@@ -57,30 +62,41 @@ class WordGame_tk( tkinter.Tk ) :
         # Set grid geometry
         self.grid()
 
-        # Plural checkbox
+        # Plural checkbox; enable by default
         pluralCheckButton = tkinter.Checkbutton( self, text="omit 's'/'es' plurals", variable=self.pluralCheckVal, onvalue=1, offvalue=0 )
         pluralCheckButton.grid( row=0, column=0, sticky='w' )
-        pluralCheckButton.select()      # enable by default
+        pluralCheckButton.select()
         
-        # Menu button 
+        # Extra spaces checkbox; disable by default
+        extraSpacesCheckButton = tkinter.Checkbutton( self, text="extra spaces", variable=self.exSpacesCheckVal, onvalue=1, offvalue=0 )
+        extraSpacesCheckButton.grid( row=0, column=0, sticky='e' )
+        extraSpacesCheckButton.deselect()
+        
+        # Info button 
         infoButton = tkinter.Button( self, text="Info", borderwidth=0, justify='center', command=self.OnInfo )
         infoButton.grid( row=0, column=1, sticky='n', rowspan=1 )
+        
+        # Game difficulty level radio buttons
+        radioButton = tkinter.Radiobutton( self, text="Easy", variable=self.difficultyVal, value=0 )
+        radioButton.grid( row=1, column=0, sticky='w' )
+        radioButton = tkinter.Radiobutton( self, text="Hard", variable=self.difficultyVal, value=2)
+        radioButton.grid( row=1, column=0, sticky='' )
 
         # Number of letters option
         lettersText = tkinter.Label( self, anchor='w', text="Number of Letters [%d-%d]" %(self.minLetters, self.maxLetters) )
-        lettersText.grid( row=1, column=0, sticky='w' )
+        lettersText.grid( row=2, column=0, sticky='w' )
 
         self.lettersEntry = tkinter.Spinbox( self, from_=self.minLetters, to=self.maxLetters, width=3 )
-        self.lettersEntry.grid( row=1, column=1, sticky='w' )
+        self.lettersEntry.grid( row=2, column=1, sticky='w' )
         self.lettersEntry.delete( 0, 3 )
         self.lettersEntry.insert( 0, '5' )
 
         # Number of guesses option
         numGuessesText = tkinter.Label( self, anchor="w", text="Number of Guesses [1-%d]" %(self.maxAttempts) )
-        numGuessesText.grid( row=2, column=0, sticky='w' )
+        numGuessesText.grid( row=3, column=0, sticky='w' )
 
         self.guessesEntry = tkinter.Spinbox( self, from_="1", to=self.maxAttempts, width=3 )
-        self.guessesEntry.grid( row=2, column=1, sticky='w' )
+        self.guessesEntry.grid( row=3, column=1, sticky='w' )
         self.guessesEntry.delete( 0, 3 )
         self.guessesEntry.insert( 0, '5' )
 
@@ -89,18 +105,18 @@ class WordGame_tk( tkinter.Tk ) :
         legendText2 = tkinter.Label( self, anchor='w', text="O = right letter, wrong location", borderwidth=0, bg='cyan', padx=4, width=WordGame_tk.entryWidth )
         legendText3 = tkinter.Label( self, anchor='w', text="\u25b2 = right letter, right location", borderwidth=0, bg='green', padx=4, width=WordGame_tk.entryWidth )
         legendText4 = tkinter.Label( self, anchor='w', text="_ = letter not in word", borderwidth=0, bg='red', padx=4, width=WordGame_tk.entryWidth )
-        legendText1.grid( row=3, column=0, sticky='w' )
-        legendText2.grid( row=4, column=0, sticky='w' )
-        legendText3.grid( row=5, column=0, sticky='w' )
-        legendText4.grid( row=6, column=0, sticky='w' )
+        legendText1.grid( row=4, column=0, sticky='w' )
+        legendText2.grid( row=5, column=0, sticky='w' )
+        legendText3.grid( row=6, column=0, sticky='w' )
+        legendText4.grid( row=7, column=0, sticky='w' )
 
         # Quit button
         quitButton = tkinter.Button( self, text="Exit", borderwidth=0, justify='center', width=len('Start'), command=self.OnExit )
-        quitButton.grid( row=4, column=1, sticky='n', rowspan=2 )
+        quitButton.grid( row=5, column=1, sticky='n', rowspan=2 )
 
         # Game start button
         startButton = tkinter.Button( self, text="Start", borderwidth=0, justify='center', width=len('Start'), command=self.OnStart )
-        startButton.grid( row=5, column=1, sticky='s', rowspan=2 )
+        startButton.grid( row=6, column=1, sticky='s', rowspan=2 )
 
     def OnInfo(self) :
         infoString = "==Akemi's Word Game v" + GAME_VERSION + "=="
@@ -117,6 +133,12 @@ class WordGame_tk( tkinter.Tk ) :
     def OnStart(self) :
         # Get plural option only once when the game starts so the value can't be adjusted mid-game
         self.checkPlurals = self.pluralCheckVal.get()
+
+        # Get extra spaces option
+        self.extraSpaces = self.exSpacesCheckVal.get()
+        
+        # Get the game difficulty
+        self.difficulty = self.difficultyVal.get()
 
         # Get number of guesses and letters here only ONCE when the game starts
         try :
@@ -136,7 +158,10 @@ class WordGame_tk( tkinter.Tk ) :
             self.numGuesses = None
         else :
             statusText = "Guess the '%d' letter word!" %(self.numLetters)
-            self.randomWord = self.GetRandomWord( WordGame_tk.dictWordList, self.numLetters )
+            if ( self.difficulty == 0 ) :
+                self.randomWord = self.GetRandomWord( WordGame_tk.dictWordListEasy, self.numLetters )
+            else :
+                self.randomWord = self.GetRandomWord( WordGame_tk.dictWordListHard, self.numLetters )
 
         # Reset the number of guesses that've been made
         self.curGuessNum = 0
@@ -213,14 +238,16 @@ class WordGame_tk( tkinter.Tk ) :
         if len(userGuess) != self.numLetters :
             self.statusText.set( "Error: Please input '%d' letters" %(self.numLetters) )
         else :
-            # Check for valid symbols in word
+            # Note - want to allow repeating letters because user may be trying to guess
+            # the location of one of the letters
             invalidLetter = False
             for letter in userGuess :
                 if ( ( letter < 'a' ) or ( letter > 'z' ) ) :
                     invalidLetter = True
                     break
-            
-            if ( invalidLetter == True ) :
+                
+            # Check valid symbols
+            if invalidLetter == True :
                 self.statusText.set( "Error: Invalid symbols in word" )  
             else :
                 # Valid entry! Check letter matches with the random word
@@ -238,6 +265,11 @@ class WordGame_tk( tkinter.Tk ) :
                     else :
                         resultList.append("_")
                         wrongLetters = wrongLetters + 1
+                        
+                    if self.extraSpaces != 0 :
+                        # Skip space every character for readability
+                        if len( resultList ) != 0 :
+                            resultList.append(" ")
 
                 if wrongLetters == 0 :
                     # Correct guess!
@@ -270,7 +302,7 @@ class WordGame_tk( tkinter.Tk ) :
 
         # Loop through all words in the dictionary file (SINGLE.TXT) to extract the ones
         # matching the game criteria
-        for index, word in enumerate( WordGame_tk.dictWordList ) :        
+        for index, word in enumerate( listOfWords ) :
             if ( len(word) == numLetters ) :
                 lettersInWord = dict()
                 
@@ -302,7 +334,7 @@ class WordGame_tk( tkinter.Tk ) :
                             startIndex = ( index - 10 )
                         else :
                             startIndex = 0
-                        pastWords = tuple( WordGame_tk.dictWordList[ startIndex : index ] )
+                        pastWords = tuple( listOfWords[ startIndex : index ] )
                         
                         # Check for plural words ending in 's':
                         # if word ends in an 's' and there's the same word without an 's' at the
@@ -332,24 +364,30 @@ class WordGame_tk( tkinter.Tk ) :
 
     def ReadWordsFile(self) :
         # Only need to be read once
-        if ( WordGame_tk.dictWordList == None ) :
+        if ( WordGame_tk.dictWordListEasy == None ) :
             fileHandle = None
-            wordFile = "SINGLE.TXT"
+            wordFile = "EASY.TXT"
 
-            try:
-                fileHandle = open( wordFile )
-            except:
-                print('ERROR: Unable to open word file: ' + wordFile)
-
-            # Can't proceed unless the program can get a random word
-            if ( fileHandle == None ) :
-                self.destroy()
-        
-            # Populate list with all words read from file
-            WordGame_tk.dictWordList = fileHandle.read().splitlines()
+            # 'with' statement will automatically close the file afterwards
+            with open(wordFile) as fileHandle :
+                # Populate list with all words read from file
+                WordGame_tk.dictWordListEasy = fileHandle.read().splitlines()
             
-            # Sort the list so it'll be easier to find plurals
-            WordGame_tk.dictWordList.sort()
+                # Sort the list so it'll be easier to find plurals
+                WordGame_tk.dictWordListEasy.sort()
+
+        # Only need to be read once
+        if ( WordGame_tk.dictWordListHard == None ) :
+            fileHandle = None
+            wordFile = "HARD.TXT"
+
+            # 'with' statement will automatically close the file afterwards
+            with open(wordFile) as fileHandle :
+                # Populate list with all words read from file
+                WordGame_tk.dictWordListHard = fileHandle.read().splitlines()
+            
+                # Sort the list so it'll be easier to find plurals
+                WordGame_tk.dictWordListHard.sort()
 
 
 if __name__ == '__main__':
